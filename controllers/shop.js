@@ -11,7 +11,7 @@ const ITEMS_PER_PAGE = 2;
 exports.getProducts = (req, res, next) => {
   // Importante note:
   // countDocuments() does not retrieve all documents, it only counts them which is faster than retrieving them.
-  // skip() and limit() are managed by MongoDB in a way that you only transfer the items over the wire which you 
+  // skip() and limit() are managed by MongoDB in a way that you only transfer the items over the wire which you
   // really need. It's not doing some server side filtering of the data, it really filters it on the database server already.
   const page = +req.query.page || 1;
   let totalItems;
@@ -64,7 +64,7 @@ exports.getProduct = (req, res, next) => {
 exports.getIndex = (req, res, next) => {
   // Importante note:
   // countDocuments() does not retrieve all documents, it only counts them which is faster than retrieving them.
-  // skip() and limit() are managed by MongoDB in a way that you only transfer the items over the wire which you 
+  // skip() and limit() are managed by MongoDB in a way that you only transfer the items over the wire which you
   // really need. It's not doing some server side filtering of the data, it really filters it on the database server already.
   const page = +req.query.page || 1;
   let totalItems;
@@ -136,6 +136,29 @@ exports.postCartDeleteProduct = (req, res, next) => {
     .removeFromCart(prodId)
     .then(() => {
       res.redirect("/cart");
+    })
+    .catch((err) => {
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
+};
+
+exports.getCheckout = (req, res, next) => {
+  req.user
+    .populate("cart.items.productId") // populate() now returns a promise and is now no longer chainable.
+    .then((user) => {
+      const products = user.cart.items;
+      let total = 0;
+      products.forEach((p) => {
+        total += p.quantity * p.productId.price;
+      });
+      res.render("shop/checkout", {
+        path: "/checkout",
+        pageTitle: "Checkout",
+        products: products,
+        totalSum: total,
+      });
     })
     .catch((err) => {
       const error = new Error(err);

@@ -5,7 +5,7 @@ Examples from the **"Section 23: Adding Payments"** of the course **"NodeJS - Th
 Section 23 covered:
 
 - [x] How Payments Work
-- [ ] Adding a Checkout Page
+- [x] Adding a Checkout Page
 - [ ] Using Stripe in Your App
 
 
