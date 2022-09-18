@@ -1,0 +1,12 @@
+# Node.js: Adding Payments
+
+Examples from the **"Section 23: Adding Payments"** of the course **"NodeJS - The Complete Guide (MVC, REST APIs, GraphQL, Deno)"** by Academind (Maximilian Schwarzmüller).
+
+Section 23 covered:
+
+- [ ] How Payments Work
+- [ ] Adding a Checkout Page
+- [ ] Using Stripe in Your App
+
+
+More info: https://www.udemy.com/course/nodejs-the-complete-guide/
