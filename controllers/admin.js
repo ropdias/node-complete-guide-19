@@ -23,6 +23,8 @@ exports.getAddProduct = (req, res, next) => {
   });
 };
 
+// Important:
+// We need to add logic here to delete the file if something goes wrong with validation
 exports.postAddProduct = (req, res, next) => {
   const title = req.body.title;
   const image = req.file; // Here you get an object from multer with information from the file uploaded (or undefined if rejected)

@@ -1,4 +1,6 @@
 const express = require("express");
+const csrf = require("csurf");
+const bodyParser = require("body-parser");
 
 const shopController = require("../controllers/shop");
 // We can add this middleware before every route that needs protection against a user not logged in:
@@ -7,30 +9,78 @@ const isAuth = require("../middleware/is-auth");
 
 const router = express.Router();
 
-router.get("/", shopController.getIndex);
+// We can pass an object to csrf({}) to configure some stuff like "cookie" [not recommended] (to store the secret in a cookie instead of a session (default))
+// csurf is deprecated (25/09/2022): https://snyk.io/blog/explaining-the-csurf-vulnerability-csrf-attacks-on-all-versions/
+// Since we are using session cookie already it's okay for now.
+const csrfProtection = [
+  csrf(),
+  (req, res, next) => {
+    res.locals.csrfToken = req.csrfToken(); // we are getting this method that is provided from the csrf middleware
+    next();
+  },
+];
 
-router.get("/products", shopController.getProducts);
+// bodyParser.urlencoded() will do all the request body parsing we had to do manually (with req.on("data", (chunk) => {}) e req.on("end", () => {}))
+// It won't parse all kind of bodys (like JSON and files) but will parse bodies sent through a form with enctype="application/x-www-form-urlencoded" (default)
+const urlencodedParser = bodyParser.urlencoded({ extended: false });
 
-router.get("/products/:productId", shopController.getProduct);
+router.get("/", csrfProtection, shopController.getIndex);
 
-router.get("/cart", isAuth, shopController.getCart);
+router.get("/products", csrfProtection, shopController.getProducts);
 
-router.post("/cart", isAuth, shopController.postCart);
+router.get("/products/:productId", csrfProtection, shopController.getProduct);
 
-router.post("/cart-delete-item", isAuth, shopController.postCartDeleteProduct);
+router.get("/cart", isAuth, csrfProtection, shopController.getCart);
 
-router.get("/checkout", isAuth, shopController.getCheckout);
+router.post(
+  "/cart",
+  isAuth,
+  urlencodedParser,
+  csrfProtection,
+  shopController.postCart
+);
 
-router.post("/checkout", isAuth, shopController.postCheckout);
+router.post(
+  "/cart-delete-item",
+  isAuth,
+  urlencodedParser,
+  csrfProtection,
+  shopController.postCartDeleteProduct
+);
 
-router.get("/checkout/success", isAuth, shopController.getCheckoutSuccess);
+router.get("/checkout", isAuth, csrfProtection, shopController.getCheckout);
 
-router.get("/checkout/cancel", isAuth, shopController.getCheckout);
+router.post(
+  "/checkout",
+  isAuth,
+  urlencodedParser,
+  csrfProtection,
+  shopController.postCheckout
+);
+
+router.get(
+  "/checkout/success",
+  isAuth,
+  csrfProtection,
+  shopController.getCheckoutSuccess
+);
+
+router.get(
+  "/checkout/cancel",
+  isAuth,
+  csrfProtection,
+  shopController.getCheckout
+);
 
 // router.post("/create-order", isAuth, shopController.postOrder);
 
-router.get("/orders", isAuth, shopController.getOrders);
+router.get("/orders", isAuth, csrfProtection, shopController.getOrders);
 
-router.get("/orders/:orderId", isAuth, shopController.getInvoice);
+router.get(
+  "/orders/:orderId",
+  isAuth,
+  csrfProtection,
+  shopController.getInvoice
+);
 
 module.exports = router;
