@@ -23,8 +23,6 @@ exports.getAddProduct = (req, res, next) => {
   });
 };
 
-// Important:
-// We need to add logic here to delete the file if something goes wrong with validation
 exports.postAddProduct = (req, res, next) => {
   const title = req.body.title;
   const image = req.file; // Here you get an object from multer with information from the file uploaded (or undefined if rejected)
@@ -48,18 +46,27 @@ exports.postAddProduct = (req, res, next) => {
 
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(422).render("admin/edit-product", {
-      path: "/admin/add-product",
-      pageTitle: "Add Product",
-      editing: false,
-      oldInput: {
-        title: title,
-        price: price,
-        description: description,
-      },
-      errorMessage: errors.array()[0].msg,
-      validationErrors: errors.array(),
-    });
+    return fileHelper
+      .deleteFile(image.path)
+      .then(() => {
+        res.status(422).render("admin/edit-product", {
+          path: "/admin/add-product",
+          pageTitle: "Add Product",
+          editing: false,
+          oldInput: {
+            title: title,
+            price: price,
+            description: description,
+          },
+          errorMessage: errors.array()[0].msg,
+          validationErrors: errors.array(),
+        });
+      })
+      .catch((err) => {
+        const error = new Error(err);
+        error.httpStatusCode = 500;
+        return next(error);
+      });
   }
 
   const imageUrl = image.path; // Getting the image path to store in the DB and fetch the image later
@@ -150,19 +157,44 @@ exports.postEditProduct = (req, res, next) => {
   const updatedDesc = req.body.description;
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(422).render("admin/edit-product", {
-      path: "/admin/add-product",
-      pageTitle: "Edit Product",
-      editing: true,
-      product: {
-        title: updatedTitle,
-        price: updatedPrice,
-        description: updatedDesc,
-        _id: prodId,
-      },
-      errorMessage: errors.array()[0].msg,
-      validationErrors: errors.array(),
-    });
+    if (image) {
+      return fileHelper
+        .deleteFile(image.path)
+        .then(() => {
+          res.status(422).render("admin/edit-product", {
+            path: "/admin/add-product",
+            pageTitle: "Edit Product",
+            editing: true,
+            product: {
+              title: updatedTitle,
+              price: updatedPrice,
+              description: updatedDesc,
+              _id: prodId,
+            },
+            errorMessage: errors.array()[0].msg,
+            validationErrors: errors.array(),
+          });
+        })
+        .catch((err) => {
+          const error = new Error(err);
+          error.httpStatusCode = 500;
+          return next(error);
+        });
+    } else {
+      return res.status(422).render("admin/edit-product", {
+        path: "/admin/add-product",
+        pageTitle: "Edit Product",
+        editing: true,
+        product: {
+          title: updatedTitle,
+          price: updatedPrice,
+          description: updatedDesc,
+          _id: prodId,
+        },
+        errorMessage: errors.array()[0].msg,
+        validationErrors: errors.array(),
+      });
+    }
   }
 
   Product.findById(prodId) // findById() returns a mongoose object where we can call .save()
@@ -176,21 +208,36 @@ exports.postEditProduct = (req, res, next) => {
       // We will check if a new file image was uploaded to update if we have a new image
       // Otherwise we will not update this field and we will remain with the old path
       if (image) {
-        fileHelper.deleteFile(product.imageUrl); // Here i'm firing this function and I'm not caring about the result
-        product.imageUrl = image.path;
+        return fileHelper
+          .deleteFile(product.imageUrl)
+          .then(() => {
+            product.imageUrl = image.path;
+            return product.save(); // if we use the save() here it will not create a new one instead it will update behind the scenes
+          })
+          .then(() => {
+            // We have this then() here and not in a chain because we have different returns for different situations
+            console.log("UPDATED PRODUCT!");
+            res.redirect("/admin/products");
+          })
+          .catch((err) => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            return next(error);
+          }); // Here i'm firing this function and I'm not caring about the result
+      } else {
+        return product
+          .save() // if we use the save() here it will not create a new one instead it will update behind the scenes
+          .then(() => {
+            // We have this then() here and not in a chain because we have different returns for different situations
+            console.log("UPDATED PRODUCT!");
+            res.redirect("/admin/products");
+          })
+          .catch((err) => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            return next(error);
+          });
       }
-      return product
-        .save() // if we use the save() here it will not create a new one instead it will update behind the scenes
-        .then(() => {
-          // We have this then() here and not in a chain because we have different returns for different situations
-          console.log("UPDATED PRODUCT!");
-          res.redirect("/admin/products");
-        })
-        .catch((err) => {
-          const error = new Error(err);
-          error.httpStatusCode = 500;
-          return next(error);
-        });
     })
     .catch((err) => {
       const error = new Error(err);
