@@ -6,7 +6,7 @@ Section 23 covered:
 
 - [x] How Payments Work
 - [x] Adding a Checkout Page
-- [ ] Using Stripe in Your App
+- [x] Using Stripe in Your App
 
 
 More info: https://www.udemy.com/course/nodejs-the-complete-guide/
