@@ -152,6 +152,11 @@ exports.getCheckout = (req, res, next) => {
     .populate("cart.items.productId") // populate() now returns a promise and is now no longer chainable.
     .then((user) => {
       products = user.cart.items;
+
+      if (products.length === 0) {
+        return res.redirect(303, "/cart");
+      }
+
       products.forEach((p) => {
         total += p.quantity * p.productId.price;
       });
@@ -175,33 +180,39 @@ exports.postCheckout = (req, res, next) => {
     .then((user) => {
       const products = user.cart.items;
 
-      return stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        mode: "payment",
-        line_items: products.map((p) => {
-          return {
-            price_data: {
-              currency: "usd",
-              unit_amount: p.productId.price * 100, // We need to specify this in cents
-              product_data: {
-                name: p.productId.title,
-                description: p.productId.description,
+      if (products.length === 0) {
+        return res.redirect(303, "/cart");
+      }
+
+      return stripe.checkout.sessions
+        .create({
+          payment_method_types: ["card"],
+          mode: "payment",
+          line_items: products.map((p) => {
+            return {
+              price_data: {
+                currency: "usd",
+                unit_amount: p.productId.price * 100, // We need to specify this in cents
+                product_data: {
+                  name: p.productId.title,
+                  description: p.productId.description,
+                },
               },
-            },
-            quantity: p.quantity,
-          };
-        }),
-        customer_email: req.user.email,
-        // We will build the urls in case of success or cancel to be used in dev or production:
-        success_url:
-          req.protocol + "://" + req.get("host") + "/checkout/success", // => http://localhost:3000/checkout/success
-        cancel_url: req.protocol + "://" + req.get("host") + "/checkout/cancel",
-      });
-    })
-    .then((session) => {
-      // We don't need to back the session.id to the page and call stripe.redirectToCheckout()
-      // We can redirect using session.url
-      res.redirect(session.url); 
+              quantity: p.quantity,
+            };
+          }),
+          customer_email: req.user.email,
+          // We will build the urls in case of success or cancel to be used in dev or production:
+          success_url:
+            req.protocol + "://" + req.get("host") + "/checkout/success", // => http://localhost:3000/checkout/success
+          cancel_url:
+            req.protocol + "://" + req.get("host") + "/checkout/cancel",
+        })
+        .then((session) => {
+          // We don't need to back the session.id to the page and call stripe.redirectToCheckout()
+          // We can redirect using session.url
+          res.redirect(303, session.url);
+        });
     })
     .catch((err) => {
       const error = new Error(err);
