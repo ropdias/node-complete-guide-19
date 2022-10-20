@@ -15,7 +15,7 @@ Section 29 covered:
 - [x] Using Environment Variables
 - [x] Using Production API Keys
 - [x] Setting Secure Response Headers with Helmet
-- [ ] Compressing Assets
+- [x] Compressing Assets
 - [ ] Setting Up Request Logging
 - [ ] More on Logging
 - [ ] Setting Up a SSL Server
