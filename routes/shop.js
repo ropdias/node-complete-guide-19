@@ -72,6 +72,12 @@ router.get(
   shopController.getCheckout
 );
 
+router.post(
+  "/stripe-webhooks",
+  bodyParser.raw({ type: "application/json" }),
+  shopController.stripeWebhookHandler
+);
+
 // router.post("/create-order", isAuth, shopController.postOrder);
 
 router.get("/orders", isAuth, csrfProtection, shopController.getOrders);

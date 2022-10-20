@@ -6,8 +6,50 @@ const PDFDocument = require("pdfkit");
 
 const Product = require("../models/product");
 const Order = require("../models/order");
+const User = require("../models/user");
 
 const ITEMS_PER_PAGE = 2;
+
+const stripeEndpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+const createOrder = async (session) => {
+  const user = await User.findById(session.client_reference_id).populate(
+    "cart.items.productId"
+  );
+
+  const products = user.cart.items.map((i) => {
+    // populate is bit of a magic here in the sense that it is a function in mongoose
+    // which is used for populating the data inside the reference. So basically it just
+    // references the documents from other collection hence the same does not get reflected
+    // in the database. It's just for referencing so you can simply map it on your code by
+    // referencing documents from different collections and getting them in the form you want
+    // in your nodejs code. That's why here you need the ._doc attribute
+    return { quantity: i.quantity, product: { ...i.productId._doc } };
+  });
+  const order = new Order({
+    user: {
+      email: user.email,
+      userId: user._id,
+    },
+    products: products,
+    stripeSession: session.id,
+    status: "Awaiting Payment",
+  });
+  await order.save();
+  await user.clearCart();
+};
+
+const fulfillOrder = async (session) => {
+  await Order.updateOne(
+    { stripeSession: session.id },
+    { status: "Payment received" }
+  );
+};
+
+const emailCustomerAboutFailedPayment = async (session) => {
+  // TODO: fill me in
+  console.log("Emailing customer", session);
+};
 
 exports.getProducts = (req, res, next) => {
   // Importante note:
@@ -174,86 +216,139 @@ exports.getCheckout = (req, res, next) => {
     });
 };
 
-exports.postCheckout = (req, res, next) => {
-  req.user
-    .populate("cart.items.productId") // populate() now returns a promise and is now no longer chainable.
-    .then((user) => {
-      const products = user.cart.items;
+exports.postCheckout = async (req, res, next) => {
+  let user;
+  try {
+    user = await req.user.populate("cart.items.productId"); // populate() now returns a promise and is now no longer chainable.
 
-      if (products.length === 0) {
-        return res.redirect(303, "/cart");
+    const products = user.cart.items;
+
+    if (products.length === 0) {
+      return res.redirect(303, "/cart");
+    }
+
+    if (user.stripeSession.id !== undefined) {
+      try {
+        // TODO: Think here that if the session has completed but the order wasnt filled in the server by any error we should
+        // add the order in the server before trying to pay again or create some kind of verification, if we just delete the stripeSession
+        // from the user we could lose the order somehow. Think about this.
+        await stripe.checkout.sessions.expire(user.stripeSession.id); // Returns a Session object if the expiration succeeded.
+      } catch (err) {
+        // Returns an error if the Session has already expired or isn’t in an expireable state.
+        user.stripeSession = undefined;
+        user = await user.save();
       }
+    }
 
-      return stripe.checkout.sessions
-        .create({
-          payment_method_types: ["card"],
-          mode: "payment",
-          line_items: products.map((p) => {
-            return {
-              price_data: {
-                currency: "usd",
-                unit_amount: p.productId.price * 100, // We need to specify this in cents
-                product_data: {
-                  name: p.productId.title,
-                  description: p.productId.description,
-                },
-              },
-              quantity: p.quantity,
-            };
-          }),
-          customer_email: req.user.email,
-          // We will build the urls in case of success or cancel to be used in dev or production:
-          success_url:
-            req.protocol + "://" + req.get("host") + "/checkout/success", // => http://localhost:3000/checkout/success
-          cancel_url:
-            req.protocol + "://" + req.get("host") + "/checkout/cancel",
-        })
-        .then((session) => {
-          // We don't need to back the session.id to the page and call stripe.redirectToCheckout()
-          // We can redirect using session.url
-          res.redirect(303, session.url);
-        });
-    })
-    .catch((err) => {
-      const error = new Error(err);
-      error.httpStatusCode = 500;
-      return next(error);
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: products.map((p) => {
+        return {
+          price_data: {
+            currency: "usd",
+            unit_amount: p.productId.price * 100, // We need to specify this in cents
+            product_data: {
+              name: p.productId.title,
+              description: p.productId.description,
+            },
+          },
+          quantity: p.quantity,
+        };
+      }),
+      customer_email: user.email,
+      client_reference_id: user._id.toString(),
+      // We will build the urls in case of success or cancel to be used in dev or production:
+      success_url: req.protocol + "://" + req.get("host") + "/checkout/success", // => http://localhost:3000/checkout/success
+      cancel_url: req.protocol + "://" + req.get("host") + "/checkout/cancel",
     });
+
+    user.stripeSession.cart.items = products;
+    user.stripeSession.id = session.id;
+    await user.save();
+
+    // We don't need to back the session.id to the page and call stripe.redirectToCheckout()
+    // We can redirect using session.url
+    res.redirect(303, session.url);
+  } catch (err) {
+    const error = new Error(err);
+    error.httpStatusCode = 500;
+    return next(error);
+  }
 };
 
 exports.getCheckoutSuccess = (req, res, next) => {
-  req.user
-    .populate("cart.items.productId")
-    .then((user) => {
-      const products = user.cart.items.map((i) => {
-        // populate is bit of a magic here in the sense that it is a function in mongoose
-        // which is used for populating the data inside the reference. So basically it just
-        // references the documents from other collection hence the same does not get reflected
-        // in the database. It's just for referencing so you can simply map it on your code by
-        // referencing documents from different collections and getting them in the form you want
-        // in your nodejs code. That's why here you need the ._doc attribute
-        return { quantity: i.quantity, product: { ...i.productId._doc } };
-      });
-      const order = new Order({
-        user: {
-          email: req.user.email,
-          userId: req.user,
-        },
-        products: products,
-      });
-      return order.save();
-    })
-    .then(() => {
-      return req.user.clearCart();
-    })
-    .then(() => {
-      res.redirect("/orders");
-    })
-    .catch((err) => {
-      const error = new Error(err);
-      error.httpStatusCode = 500;
-      return next(error);
-    });
+  res.redirect("/orders");
+};
+
+exports.stripeWebhookHandler = async (req, res, next) => {
+  const payload = req.body;
+  const sig = req.headers["stripe-signature"];
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(payload, sig, stripeEndpointSecret);
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object;
+      // Save an order in your database, marked as 'Awaiting Payment'
+      try {
+        await createOrder(session);
+      } catch (err) {
+        console.log(err);
+        return res.status(500).send(`Server Error: ${err.message}`);
+      }
+
+      // Check if the order is paid (for example, from a card payment)
+      //
+      // A delayed notification payment will have an `unpaid` status, as
+      // you're still waiting for funds to be transferred from the customer's
+      // account.
+      if (session.payment_status === "paid") {
+        try {
+          await fulfillOrder(session);
+        } catch (err) {
+          console.log(err);
+          return res.status(500).send(`Server Error: ${err.message}`);
+        }
+      }
+
+      break;
+    }
+
+    case "checkout.session.async_payment_succeeded": {
+      const session = event.data.object;
+
+      // Fulfill the purchase...
+      try {
+        await fulfillOrder(session);
+      } catch (err) {
+        return res.status(500).send(`Server Error: ${err.message}`);
+      }
+
+      break;
+    }
+
+    case "checkout.session.async_payment_failed": {
+      const session = event.data.object;
+
+      // Send an email to the customer asking them to retry their order
+      try {
+        await emailCustomerAboutFailedPayment(session);
+      } catch (err) {
+        return res.status(500).send(`Server Error: ${err.message}`);
+      }
+
+      break;
+    }
+  }
+
+  res.status(200).json({ message: "Event handled" });
 };
 
 // exports.postOrder = (req, res, next) => {
