@@ -22,7 +22,7 @@ Section 29 covered:
 - [x] Using a Hosting Provider
 - [x] Understanding the Project & the Git Setup
 - [x] A Deployment Example with Heroku
-- [ ] Storing User-generated Files on Heroku
-- [ ] Deploying APIs
+- [x] Storing User-generated Files on Heroku
+- [x] Deploying APIs
 
 More info: https://www.udemy.com/course/nodejs-the-complete-guide/
