@@ -293,6 +293,10 @@ exports.stripeWebhookHandler = async (req, res, next) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // You can save events in the database so you can check later if you missed any events by querying for missed events
+  // using the Stripe API
+  // https://stripe.com/docs/webhooks/best-practices
+
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;

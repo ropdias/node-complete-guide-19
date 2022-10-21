@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 
 require("dotenv").config();
 const express = require("express");
@@ -7,7 +8,8 @@ const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
 const flash = require("connect-flash");
 const helmet = require("helmet");
-const compression = require('compression');
+const compression = require("compression");
+const morgan = require("morgan");
 
 const errorControler = require("./controllers/error");
 const User = require("./models/user");
@@ -26,8 +28,27 @@ const adminRoutes = require("./routes/admin");
 const shopRoutes = require("./routes/shop");
 const authRoutes = require("./routes/auth");
 
-app.use(helmet());
+const accessLogStream = fs.createWriteStream(
+  path.join(__dirname, "access.log"),
+  { flags: "a" }
+);
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        "default-src": ["'self'"],
+        "style-src": ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
+        "font-src": ["'self'", "fonts.gstatic.com"],
+        "script-src-attr": ["'self'", "'unsafe-inline'"],
+        "form-action": ["'self'", "checkout.stripe.com"],
+      },
+    },
+  })
+);
+
 app.use(compression());
+app.use(morgan("combined", { stream: accessLogStream })); // Good article about logging: https://blog.risingstack.com/node-js-logging-tutorial/
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/images", express.static(path.join(__dirname, "images")));

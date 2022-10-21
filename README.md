@@ -16,8 +16,8 @@ Section 29 covered:
 - [x] Using Production API Keys
 - [x] Setting Secure Response Headers with Helmet
 - [x] Compressing Assets
-- [ ] Setting Up Request Logging
-- [ ] More on Logging
+- [x] Setting Up Request Logging
+- [x] More on Logging
 - [ ] Setting Up a SSL Server
 - [ ] Using a Hosting Provider
 - [ ] Understanding the Project & the Git Setup
