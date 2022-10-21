@@ -19,9 +19,9 @@ Section 29 covered:
 - [x] Setting Up Request Logging
 - [x] More on Logging
 - [x] Setting Up a SSL Server
-- [ ] Using a Hosting Provider
-- [ ] Understanding the Project & the Git Setup
-- [ ] A Deployment Example with Heroku
+- [x] Using a Hosting Provider
+- [x] Understanding the Project & the Git Setup
+- [x] A Deployment Example with Heroku
 - [ ] Storing User-generated Files on Heroku
 - [ ] Deploying APIs
 

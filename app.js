@@ -22,8 +22,8 @@ const store = new MongoDBStore({
   // expires: ... // We could add a expires attribute to set when it should expire and mongodb will clean automatically
 });
 
-const privateKey = fs.readFileSync("server.key");
-const certificate = fs.readFileSync("server.cert");
+// const privateKey = fs.readFileSync("server.key");
+// const certificate = fs.readFileSync("server.cert");
 
 app.set("view engine", "ejs");
 app.set("views", "views");
