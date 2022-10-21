@@ -18,7 +18,7 @@ Section 29 covered:
 - [x] Compressing Assets
 - [x] Setting Up Request Logging
 - [x] More on Logging
-- [ ] Setting Up a SSL Server
+- [x] Setting Up a SSL Server
 - [ ] Using a Hosting Provider
 - [ ] Understanding the Project & the Git Setup
 - [ ] A Deployment Example with Heroku

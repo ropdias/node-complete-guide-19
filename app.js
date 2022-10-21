@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const https = require("https");
 
 require("dotenv").config();
 const express = require("express");
@@ -20,6 +21,9 @@ const store = new MongoDBStore({
   collection: "sessions", // You define here the collections you will use to store the sessions, we can use any name here
   // expires: ... // We could add a expires attribute to set when it should expire and mongodb will clean automatically
 });
+
+const privateKey = fs.readFileSync("server.key");
+const certificate = fs.readFileSync("server.cert");
 
 app.set("view engine", "ejs");
 app.set("views", "views");
@@ -125,6 +129,10 @@ app.use((error, req, res, next) => {
 mongoose
   .connect(process.env.MONGODB_URI)
   .then((result) => {
+    // Here is how you set up it manually, but we usually let our host provider set this for us:
+    // https
+    //   .createServer({ key: privateKey, cert: certificate }, app)
+    //   .listen(process.env.PORT || 3000);
     app.listen(process.env.PORT || 3000);
   })
   .catch((err) => {

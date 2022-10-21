@@ -18,3 +18,7 @@
 
 # logging:
 access.log
+
+# SSL certificate and key:
+server.cert
+server.key
